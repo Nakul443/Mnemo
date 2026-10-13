@@ -53,8 +53,75 @@ def get_current_facts_for_entities(
     ]
 
 
-def _clean_entities(entities: list[dict[str, object]]) -> list[dict[str, object]]:
-    return [entity for entity in entities if entity.get("id") is not None]
+def _append_about_entity(
+    about: list[dict[str, object]],
+    entity_id: object,
+    name: object,
+    entity_type: object,
+) -> None:
+    if entity_id is None:
+        return
+    entity = {"id": entity_id, "name": name, "type": entity_type}
+    if entity not in about:
+        about.append(entity)
+
+
+def _group_fact_rows(
+    rows: list[list[object]],
+    *,
+    replaced: bool,
+) -> list[dict[str, object]]:
+    facts: dict[object, dict[str, object]] = {}
+    for row in rows:
+        if replaced:
+            (
+                fact_id,
+                text,
+                created_at,
+                replaced_at,
+                entity_id,
+                entity_name,
+                entity_type,
+                source_message,
+                replacement_id,
+                replacement_text,
+            ) = row
+        else:
+            (
+                fact_id,
+                text,
+                created_at,
+                entity_id,
+                entity_name,
+                entity_type,
+                source_message,
+            ) = row
+
+        fact = facts.setdefault(
+            fact_id,
+            {
+                "id": fact_id,
+                "text": text,
+                "created_at": created_at,
+                "about": [],
+                "source_message": None,
+            },
+        )
+        about = fact["about"]
+        if isinstance(about, list):
+            _append_about_entity(about, entity_id, entity_name, entity_type)
+        if source_message is not None:
+            fact["source_message"] = source_message
+
+        if replaced:
+            fact["replaced_at"] = replaced_at
+            replacements = fact.setdefault("replaced_by", [])
+            if replacement_id is not None and isinstance(replacements, list):
+                replacement = {"id": replacement_id, "text": replacement_text}
+                if replacement not in replacements:
+                    replacements.append(replacement)
+
+    return list(facts.values())
 
 
 def dump_memory(agent_id: str) -> dict[str, list[dict[str, object]]]:
@@ -85,60 +152,32 @@ def dump_memory(agent_id: str) -> dict[str, list[dict[str, object]]]:
         """
         MATCH (f:Fact {agent_id: $agent_id, still_true: $still_true})
         OPTIONAL MATCH (f)-[:ABOUT]->(e:Entity {agent_id: $agent_id})
-        WITH f, collect(DISTINCT {id: e.id, name: e.name, type: e.type}) AS about
         OPTIONAL MATCH (f)-[:CAME_FROM]->(ev:Event {agent_id: $agent_id})
-        WITH f, about, collect(DISTINCT ev.text) AS sources
         RETURN f.id AS id, f.text AS text, f.created_at AS created_at,
-               about AS about, head(sources) AS source_message
-        ORDER BY created_at DESC
+               e.id AS entity_id, e.name AS entity_name, e.type AS entity_type,
+               ev.text AS source_message
+        ORDER BY created_at DESC, entity_name
         """,
         {"agent_id": agent_id, "still_true": True},
     ).result_set
-    current_facts = [
-        {
-            "id": row[0],
-            "text": row[1],
-            "created_at": row[2],
-            "about": _clean_entities(row[3]),
-            "source_message": row[4],
-        }
-        for row in current_rows
-    ]
+    current_facts = _group_fact_rows(current_rows, replaced=False)
 
     replaced_rows = graph.query(
         """
         MATCH (f:Fact {agent_id: $agent_id, still_true: $still_true})
         OPTIONAL MATCH (f)-[:ABOUT]->(e:Entity {agent_id: $agent_id})
-        WITH f, collect(DISTINCT {id: e.id, name: e.name, type: e.type}) AS about
         OPTIONAL MATCH (f)-[:CAME_FROM]->(ev:Event {agent_id: $agent_id})
-        WITH f, about, collect(DISTINCT ev.text) AS sources
         OPTIONAL MATCH (replacement:Fact {agent_id: $agent_id})-[:REPLACES]->(f)
-        WITH f, about, sources,
-             collect(DISTINCT {id: replacement.id, text: replacement.text})
-                 AS replacements
         RETURN f.id AS id, f.text AS text, f.created_at AS created_at,
-               f.replaced_at AS replaced_at, about AS about,
-               head(sources) AS source_message, replacements AS replaced_by
-        ORDER BY replaced_at DESC
+               f.replaced_at AS replaced_at, e.id AS entity_id,
+               e.name AS entity_name, e.type AS entity_type,
+               ev.text AS source_message, replacement.id AS replacement_id,
+               replacement.text AS replacement_text
+        ORDER BY replaced_at DESC, entity_name
         """,
         {"agent_id": agent_id, "still_true": False},
     ).result_set
-    replaced_facts = [
-        {
-            "id": row[0],
-            "text": row[1],
-            "created_at": row[2],
-            "replaced_at": row[3],
-            "about": _clean_entities(row[4]),
-            "source_message": row[5],
-            "replaced_by": [
-                replacement
-                for replacement in row[6]
-                if replacement.get("id") is not None
-            ],
-        }
-        for row in replaced_rows
-    ]
+    replaced_facts = _group_fact_rows(replaced_rows, replaced=True)
     return {
         "entities": entities,
         "current_facts": current_facts,

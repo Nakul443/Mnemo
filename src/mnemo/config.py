@@ -32,7 +32,7 @@ def get_settings() -> Settings:
         ),
         conflict_model=os.getenv("CONFLICT_MODEL", "gemini-flash-lite-latest"),
         falkordb_host=os.getenv("FALKORDB_HOST", "localhost"),
-        falkordb_port=int(os.getenv("FALKORDB_PORT", "6379")),
+        falkordb_port=int(os.getenv("FALKORDB_PORT", "6380")),
         falkordb_password=password,
         falkordb_graph=os.getenv("FALKORDB_GRAPH", "mnemo"),
         agent_id=os.getenv("AGENT_ID", "agent_main"),
