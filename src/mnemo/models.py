@@ -25,3 +25,18 @@ class ExtractionResult(BaseModel):
 class ConflictDecision(BaseModel):
     action: str
     replaces: list[str] = Field(default_factory=list)
+
+
+class FactDecision(BaseModel):
+    text: str
+    action: str
+    replaces: list[str] = Field(default_factory=list)
+
+
+class ProcessResult(BaseModel):
+    event_id: str
+    session_id: str
+    seq: int
+    text: str
+    entities: list[ExtractedEntity] = Field(default_factory=list)
+    fact_decisions: list[FactDecision] = Field(default_factory=list)

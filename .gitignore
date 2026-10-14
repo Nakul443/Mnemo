@@ -1,8 +1,38 @@
+# Environment & Virtualenv
 .env
 .venv/
+venv/
+env/
+
+# Python bytecode & cache
 __pycache__/
+*.py[cod]
+*$py.class
+
+# Packaging & build
 *.egg-info/
+.eggs/
+dist/
+build/
+
+# Testing & coverage
 .pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Logs & temp files
 logs/
+*.log
+
+# Frontend & dependencies
 node_modules/
+
+# IDE & OS
+.idea/
+.DS_Store
+Thumbs.db
+
+# Day 1 draft spec file
 README(DAY 1).md

@@ -1,0 +1,29 @@
+{
+  "sessions": [
+    {
+      "name": "Session A",
+      "messages": [
+        "Hi, I'm starting a new project called Project X, it's a task manager app.",
+        "I'm building Project X in Python with FastAPI.",
+        "I prefer short, direct answers.",
+        "Thanks!",
+        "We decided to use PostgreSQL for the database."
+      ]
+    },
+    {
+      "name": "Session B",
+      "messages": [
+        "Rafael is helping me on Project X with the frontend.",
+        "Actually I switched Project X from Python to Go for speed.",
+        "What's the weather like today?",
+        "I'm using Redis for caching in Project X.",
+        "Project X's deadline is October 30.",
+        "The deadline for Project X moved to November 15.",
+        "I use Go for Project X.",
+        "I'm starting a second project, Project Y, a CLI tool in Rust.",
+        "I changed my mind, I prefer detailed explanations.",
+        "Rafael left the project."
+      ]
+    }
+  ]
+}
