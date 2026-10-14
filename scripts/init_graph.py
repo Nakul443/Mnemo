@@ -1,5 +1,8 @@
 """Initialize the configured Mnemo graph."""
 
+# this file is responsible for initializing the Mnemo graph in FalkorDB.
+# in simple words, it sets up the database schema and ensures that the configured agent exists.
+
 import logging
 
 from mnemo.config import get_settings

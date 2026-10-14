@@ -1,5 +1,10 @@
 """Scenario runner script for Mnemo memory evaluation."""
 
+# this file is responsible for running a scenario evaluation for the Mnemo memory module.
+# in simple words, it reads a JSON scenario file containing sessions and messages,
+# processes each message through the memory pipeline, and prints the extracted entities and facts,
+# while optionally resetting the graph before running.
+
 import argparse
 import json
 import logging
