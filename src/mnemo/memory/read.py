@@ -1,5 +1,8 @@
 """Graph read operations for Mnemo memory."""
 
+# this file is responsible for reading data from the FalkorDB graph database
+# and returning it in a structured format.
+
 from mnemo.memory.client import get_graph
 
 

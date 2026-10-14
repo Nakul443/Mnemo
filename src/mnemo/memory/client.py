@@ -1,5 +1,9 @@
 """FalkorDB connection and graph selection."""
 
+
+# this file is responsible for managing the connection to the FalkorDB database
+# and selecting the appropriate graph for operations.
+
 from functools import lru_cache
 
 from falkordb import FalkorDB
@@ -10,10 +14,9 @@ from mnemo.config import get_settings
 
 @lru_cache(maxsize=1)
 def _get_db(host: str, port: int, password: str | None) -> FalkorDB:
-    options: dict[str, str | int] = {"host": host, "port": port}
-    if password is not None:
-        options["password"] = password
-    return FalkorDB(**options)
+    if password is None:
+        return FalkorDB(host=host, port=port)
+    return FalkorDB(host=host, port=port, password=password)
 
 
 def get_graph() -> Graph:

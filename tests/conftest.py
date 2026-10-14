@@ -1,11 +1,13 @@
-from dataclasses import replace
+# this file is responsible for setting up pytest fixtures for testing the Mnemo memory module.
+
 from collections.abc import Iterator
+from dataclasses import replace
 from uuid import uuid4
 
 import pytest
 from falkordb.graph import Graph
 
-import mnemo.memory.client as client
+from mnemo.memory import client
 
 
 @pytest.fixture

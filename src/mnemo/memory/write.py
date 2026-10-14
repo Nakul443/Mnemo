@@ -1,5 +1,9 @@
 """Graph write operations."""
 
+# this file is responsible for writing data to the FalkorDB graph database
+# it provides functions to create and update agents, sessions, events, entities, and facts,
+# ensuring that the graph structure is maintained and that relationships between nodes are correctly established.
+
 import logging
 import time
 from uuid import uuid4

@@ -1,5 +1,9 @@
 """Name normalization helpers for graph entity identity."""
 
+# this file is responsible for normalizing entity names to ensure consistent identity in the graph database.
+# normalizing means collapsing whitespace and lowercasing names without changing punctuation,
+# so that different variations of the same name are treated as the same entity.
+
 import re
 
 

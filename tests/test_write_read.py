@@ -1,6 +1,6 @@
-import mnemo.memory.read as read
-import mnemo.memory.write as write
 from falkordb.graph import Graph
+
+from mnemo.memory import read, write
 
 
 def test_memory_writes_and_reads_preserve_history(
@@ -38,24 +38,26 @@ def test_memory_writes_and_reads_preserve_history(
 
     python = write.upsert_entity("agent_test", "Python", "Tool")
     go = write.upsert_entity("agent_test", "Go", "Tool")
-    write.link_event_mentions("agent_test", first_event["id"], project["id"])
+    write.link_event_mentions("agent_test", str(first_event["id"]), str(project["id"]))
     old_fact = write.add_fact(
         "agent_test",
         "Project X uses Python",
-        [project["id"], python["id"]],
-        first_event["id"],
+        [str(project["id"]), str(python["id"])],
+        str(first_event["id"]),
     )
     new_fact = write.add_fact(
         "agent_test",
         "Project X uses Go",
-        [project["id"], go["id"]],
-        second_event["id"],
+        [str(project["id"]), str(go["id"])],
+        str(second_event["id"]),
     )
-    write.replace_facts("agent_test", new_fact["id"], [old_fact["id"]], 123456789)
+    write.replace_facts(
+        "agent_test", str(new_fact["id"]), [str(old_fact["id"])], 123456789
+    )
 
     current_facts = read.get_current_facts_for_entities(
         "agent_test",
-        [project["id"]],
+        [str(project["id"])],
     )
     assert [fact["id"] for fact in current_facts] == [new_fact["id"]]
 
@@ -67,7 +69,9 @@ def test_memory_writes_and_reads_preserve_history(
     replaced = memory["replaced_facts"][0]
     assert current["id"] == new_fact["id"]
     assert current["source_message"] == "Project X now uses Go."
-    assert {entity["id"] for entity in current["about"]} == {
+    about = current["about"]
+    assert isinstance(about, list)
+    assert {entity["id"] for entity in about} == {
         project["id"],
         go["id"],
     }

@@ -1,5 +1,6 @@
-import mnemo.memory.schema as schema
 from falkordb.graph import Graph
+
+from mnemo.memory import schema
 
 
 def test_schema_initialization_is_idempotent(

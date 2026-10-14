@@ -1,5 +1,7 @@
 """Graph index initialization."""
 
+# this file is responsible for creating the necessary indexes in the FalkorDB graph database
+
 import logging
 
 from mnemo.memory.client import get_graph
