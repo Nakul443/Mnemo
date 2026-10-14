@@ -1,5 +1,9 @@
 """LLM-assisted extraction and strict post-validation cleanup."""
 
+# this file is responsible for extracting durable entities and facts from a single user message.
+# it uses a Gemini model to perform the extraction, but also performs strict post-validation
+# and cleanup of the model's output to ensure that only valid entities and facts are returned.
+
 import json
 import logging
 import re

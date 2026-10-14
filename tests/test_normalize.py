@@ -1,3 +1,8 @@
+# this file is responsible for testing the name normalization helpers in the Mnemo memory module.
+# in simple words,
+# it checks that the normalize_name function correctly processes names
+# by collapsing whitespace, lowercasing, and preserving punctuation.
+
 from mnemo.memory.normalize import normalize_name
 
 

@@ -1,3 +1,7 @@
+# this file is responsible for testing the write and read functions in the Mnemo memory module.
+# in simple words, it checks that the write and read functions correctly store and retrieve memory data
+# including events, entities, and facts, while preserving the history of changes and replacements.
+
 from falkordb.graph import Graph
 
 from mnemo.memory import read, write

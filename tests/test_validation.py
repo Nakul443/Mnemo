@@ -1,3 +1,8 @@
+# this file is responsible for testing the validation and extraction logic in the Mnemo memory module.
+# in simple words,
+# it checks that the extract and check_conflict functions correctly handle invalid JSON output from the Gemini LLM,
+# and that they sanitize the output to ensure that only valid actions and replacement IDs are returned.
+
 import json
 from dataclasses import replace
 from types import SimpleNamespace
@@ -6,8 +11,8 @@ import pytest
 from google.genai.errors import ClientError
 
 import mnemo.llm.client as llm_client
-import mnemo.memory.conflicts as conflicts
 import mnemo.memory.extract as extract_module
+from mnemo.memory import conflicts
 
 
 def test_extract_cleans_invalid_entities_and_unknown_fact_references(

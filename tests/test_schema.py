@@ -1,3 +1,6 @@
+# this file is responsible for testing the schema initialization in the Mnemo memory module.
+# in simple words, it checks that the init_schema function correctly sets up the database schema and is idempotent.
+
 from falkordb.graph import Graph
 
 from mnemo.memory import schema

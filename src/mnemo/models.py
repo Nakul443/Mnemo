@@ -1,5 +1,9 @@
 """Validated domain and LLM output models."""
 
+# this file is responsible for defining the data models used in Mnemo,
+# including the structure of extracted entities and facts, as well as conflict decisions.
+# These models are validated using Pydantic to ensure that the data conforms to the expected schema.
+
 from pydantic import BaseModel, Field
 
 
