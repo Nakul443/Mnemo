@@ -26,7 +26,10 @@ def _one_row(result: QueryResult, operation: str) -> list[object]:
         raise RuntimeError(f"FalkorDB did not return a result for {operation}")
     return rows[0]
 
-
+# function to ensure that the result of a query returns exactly one row, otherwise raises an error
+# one row because we expect certain operations
+# (like creating an agent or session) to return a single result,
+# and if it doesn't, something went wrong
 def ensure_agent(agent_id: str, name: str) -> dict[str, object]:
     """Create or update the agent node and return its stored properties."""
     graph = get_graph()
@@ -78,7 +81,7 @@ def create_session(agent_id: str) -> str:
     row = _one_row(result, "creating session")
     return str(row[0])
 
-
+# function to create a new session for an agent
 def add_event(
     agent_id: str,
     session_id: str,
@@ -125,7 +128,7 @@ def add_event(
         "ts": row[6],
     }
 
-
+# entity means a thing or concept that is represented in the graph, such as a person, place, object, or idea
 def upsert_entity(agent_id: str, name: str, entity_type: str) -> dict[str, object]:
     """Create an entity once, preserving its first display name and type."""
     name_key = normalize_name(name)

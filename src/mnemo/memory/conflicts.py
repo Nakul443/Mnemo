@@ -1,9 +1,10 @@
 """Conservative fact conflict decisions."""
 
 # this file is responsible for classifying a new fact as add, replace, or skip
-# based on existing facts in memory. It uses a Gemini model to make the classification,
-# but prefilters some cases to avoid unnecessary calls to the model. It also validates
-# the model's output and defaults to "add" if the output is invalid or unrecognized
+# based on existing facts in memory.
+# It uses a Gemini model to make the classification,
+# but prefilters some cases to avoid unnecessary calls to the model.
+# It also validates the model's output and defaults to "add" if the output is invalid or unrecognized
 
 import json
 import logging

@@ -162,7 +162,7 @@ def test_conflict_retries_malformed_output_then_defaults_to_add(
     assert calls == 2
 
 
-def test_generate_json_retries_http_429_with_backoff(
+def test_generate_json_retries_http_429_and_503_with_backoff(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     settings = replace(llm_client.get_settings(), gemini_api_key="fake-key")
@@ -179,6 +179,8 @@ def test_generate_json_retries_http_429_with_backoff(
             self.calls += 1
             if self.calls == 1:
                 raise ClientError(429, {"message": "rate limited"})
+            if self.calls == 2:
+                raise ClientError(503, {"message": "service unavailable"})
             assert kwargs["model"] == "test-model"
             assert kwargs["config"].temperature == 0
             assert kwargs["config"].response_mime_type == "application/json"
@@ -190,8 +192,8 @@ def test_generate_json_retries_http_429_with_backoff(
     result = llm_client.generate_json("test-model", "system", "input")
 
     assert result == '{"ok": true}'
-    assert models.calls == 2
-    assert sleeps == [1.5]
+    assert models.calls == 3
+    assert sleeps == [1.5, 2.5]
 
 
 def test_generate_json_propagates_non_rate_limit_errors(

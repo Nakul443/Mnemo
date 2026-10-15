@@ -23,18 +23,20 @@ MAX_ATTEMPTS = 5
 def _get_client(api_key: str) -> genai.Client:
     return genai.Client(api_key=api_key)
 
-
-def _is_rate_limit(error: Exception) -> bool:
-    if (
-        isinstance(error, (ClientError, ServerError))
-        and (error.code == 429 or error.status == 429)
-    ):
-        return True
-    return "resource_exhausted" in str(error).casefold()
+# function to determine if an error is retryable based on its type and status code
+# retryable errors include rate-limiting (429) and server errors (503)
+# also checks for certain error messages that indicate the service is overloaded or unavailable
+def _is_retryable(error: Exception) -> bool:
+    if isinstance(error, (ClientError, ServerError)):
+        code = getattr(error, "code", None) or getattr(error, "status", None)
+        if code in (429, 503):
+            return True
+    err_str = str(error).casefold()
+    return "resource_exhausted" in err_str or "overloaded" in err_str or "unavailable" in err_str
 
 
 def generate_json(model: str, system_prompt: str, user_content: str) -> str:
-    """Generate raw JSON text, retrying rate limits with backoff and jitter."""
+    """Generate raw JSON text, retrying rate limits and server errors with backoff."""
     settings = get_settings()
     if not settings.gemini_api_key:
         raise ValueError("GEMINI_API_KEY is required for Gemini requests")
@@ -61,11 +63,11 @@ def generate_json(model: str, system_prompt: str, user_content: str) -> str:
                 logger.debug("Gemini model %s raw output: %s", model, output)
             return output
         except (ClientError, ServerError) as error:
-            if not _is_rate_limit(error) or attempt == MAX_ATTEMPTS - 1:
+            if not _is_retryable(error) or attempt == MAX_ATTEMPTS - 1:
                 raise
             delay = 2**attempt + random.uniform(0, 1)
             logger.warning(
-                "Gemini rate limit for model %s; retrying in %.2fs (%d/%d)",
+                "Gemini transient error for model %s; retrying in %.2fs (%d/%d)",
                 model,
                 delay,
                 attempt + 1,

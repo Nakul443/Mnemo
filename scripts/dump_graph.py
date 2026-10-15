@@ -17,7 +17,7 @@ def dump() -> None:
     settings = get_settings()
     data = dump_memory(settings.agent_id)
 
-    entities = data.get("entities", [])
+    entities = data.get("entities", []) # this is a list of all entities in the graph, each represented as a dictionary with 'name' and 'type' keys
     current_facts = data.get("current_facts", [])
     replaced_facts = data.get("replaced_facts", [])
 
@@ -25,7 +25,7 @@ def dump() -> None:
     print(f" GRAPH MEMORY DUMP — Agent: '{settings.agent_id}'")
     print("========================================================\n")
 
-    # 1. Entities grouped by type
+    # Entities grouped by type
     print(f"--- ENTITIES ({len(entities)}) ---")
     entities_by_type: dict[str, list[str]] = defaultdict(list)
     if isinstance(entities, list):
@@ -42,7 +42,7 @@ def dump() -> None:
             print(f"  [{etype}] {', '.join(names)}")
         print()
 
-    # 2. Current facts
+    # Current facts
     print(f"--- CURRENT FACTS ({len(current_facts)}) ---")
     if not current_facts or not isinstance(current_facts, list):
         print("  (no current facts found)\n")
@@ -62,7 +62,7 @@ def dump() -> None:
             print(f"  • {fact['text']}{about_str}{src_str}")
         print()
 
-    # 3. Replaced facts
+    # Replaced facts
     print(f"--- REPLACED FACTS ({len(replaced_facts)}) ---")
     if not replaced_facts or not isinstance(replaced_facts, list):
         print("  (no replaced facts found)\n")

@@ -28,10 +28,11 @@ Rules:
    "project x"). Reuse the same name every time.
 7. Record only what the user states. Do not infer or guess.
 8. If nothing is worth saving, return {"entities": [], "facts": []}.
+9. Name Preference entities by topic, not value, so a changed preference
+   reuses the same entity. Good: "Answer style". Bad: "Concise answers".
 
 Example
 MESSAGE: "I switched Project X from Python to Go last week, mostly for speed."
 Output:
 {"entities":[{"name":"Project X","type":"Project"},{"name":"Go","type":"Tool"},{"name":"Python","type":"Tool"}],
- "facts":[{"text":"Project X uses Go","about":["Project X","Go"]},
-          {"text":"Project X switched from Python to Go for speed","about":["Project X","Python","Go"]}]}
+ "facts":[{"text":"Project X uses Go","about":["Project X","Go"]}]}
