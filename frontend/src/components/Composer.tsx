@@ -1,4 +1,5 @@
 // this file is responsible for defining the Composer component
+// the composer is the input area at the bottom of the chat interface where users can type their messages.
 // It provides a text area for user input,
 // handles submission of messages, and manages the state of the input field.
 // In simple words,
