@@ -7,7 +7,9 @@
 import logging
 import random
 import time
+from collections.abc import Mapping, Sequence
 from functools import lru_cache
+from typing import Any
 
 from google import genai
 from google.genai import types
@@ -23,6 +25,7 @@ MAX_ATTEMPTS = 5
 def _get_client(api_key: str) -> genai.Client:
     return genai.Client(api_key=api_key)
 
+
 # function to determine if an error is retryable based on its type and status code
 # retryable errors include rate-limiting (429) and server errors (503)
 # also checks for certain error messages that indicate the service is overloaded or unavailable
@@ -32,28 +35,22 @@ def _is_retryable(error: Exception) -> bool:
         if code in (429, 503):
             return True
     err_str = str(error).casefold()
-    return "resource_exhausted" in err_str or "overloaded" in err_str or "unavailable" in err_str
+    return (
+        "resource_exhausted" in err_str
+        or "overloaded" in err_str
+        or "unavailable" in err_str
+    )
 
 
-def generate_json(model: str, system_prompt: str, user_content: str) -> str:
-    """Generate raw JSON text, retrying rate limits and server errors with backoff."""
-    settings = get_settings()
-    if not settings.gemini_api_key:
-        raise ValueError("GEMINI_API_KEY is required for Gemini requests")
-
-    client = _get_client(settings.gemini_api_key)
+# this funtion executes a call to the Gemini API with retry logic for transient errors
+def _execute_with_retry(
+    model: str,
+    call_fn: Any,
+) -> str:
     for attempt in range(MAX_ATTEMPTS):
         started = time.monotonic()
         try:
-            response = client.models.generate_content(
-                model=model,
-                contents=user_content,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_prompt,
-                    temperature=0,
-                    response_mime_type="application/json",
-                ),
-            )
+            response = call_fn()
             latency = time.monotonic() - started
             logger.info("Gemini model %s completed in %.3fs", model, latency)
             output = response.text
@@ -76,3 +73,64 @@ def generate_json(model: str, system_prompt: str, user_content: str) -> str:
             time.sleep(delay)
 
     raise RuntimeError(f"Gemini model {model} exhausted retry attempts")
+
+
+def generate_json(model: str, system_prompt: str, user_content: str) -> str:
+    """Generate raw JSON text, retrying rate limits and server errors with backoff."""
+    settings = get_settings()
+    if not settings.gemini_api_key:
+        raise ValueError("GEMINI_API_KEY is required for Gemini requests")
+
+    client = _get_client(settings.gemini_api_key)
+
+    def _call():
+        return client.models.generate_content(
+            model=model,
+            contents=user_content,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                temperature=0,
+                response_mime_type="application/json",
+            ),
+        )
+
+    return _execute_with_retry(model, _call)
+
+
+def generate_text(
+    model: str,
+    system_prompt: str,
+    messages: Sequence[Mapping[str, str]],
+    temperature: float = 0.6,
+) -> str:
+    """Generate plain text response for multi-turn chat conversations."""
+    settings = get_settings()
+    if not settings.gemini_api_key:
+        raise ValueError("GEMINI_API_KEY is required for Gemini requests")
+
+    client = _get_client(settings.gemini_api_key)
+
+    contents: list[types.Content] = []
+    for msg in messages:
+        role = msg.get("role", "user")
+        text = msg.get("content", "")
+        # Map "assistant" role to Gemini's "model" role
+        gemini_role = "model" if role == "assistant" else "user"
+        contents.append(
+            types.Content(
+                role=gemini_role,
+                parts=[types.Part.from_text(text=text)],
+            )
+        )
+
+    def _call():
+        return client.models.generate_content(
+            model=model,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                temperature=temperature,
+            ),
+        )
+
+    return _execute_with_retry(model, _call)
