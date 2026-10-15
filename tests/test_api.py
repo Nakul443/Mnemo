@@ -100,7 +100,9 @@ def test_cross_session_persistence_and_graph_snapshot(
         existing_facts: Any,
     ) -> ConflictDecision:
         existing_ids = [
-            str(f["id"]) for f in existing_facts if isinstance(f, dict) and f.get("id") is not None
+            str(f["id"])
+            for f in existing_facts
+            if isinstance(f, dict) and f.get("id") is not None
         ]
         if existing_ids:
             return ConflictDecision(action="replace", replaces=existing_ids)
