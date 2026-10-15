@@ -12,8 +12,16 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 _LOCK = threading.Lock()
-_EXECUTOR = ThreadPoolExecutor(max_workers=1)
+_EXECUTOR: ThreadPoolExecutor | None = None
 _PENDING_COUNT = 0
+
+
+def _get_executor() -> ThreadPoolExecutor:
+    global _EXECUTOR
+    with _LOCK:
+        if _EXECUTOR is None:
+            _EXECUTOR = ThreadPoolExecutor(max_workers=1)
+        return _EXECUTOR
 
 
 # function to submit an extraction function to run asynchronously on the single worker thread
@@ -37,7 +45,7 @@ def submit_extraction(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Futu
             with _LOCK:
                 _PENDING_COUNT -= 1
 
-    return _EXECUTOR.submit(_wrapped)
+    return _get_executor().submit(_wrapped)
 
 
 def pending_count() -> int:
@@ -63,4 +71,8 @@ def wait_for_idle(timeout: float | None = None) -> bool:
 
 def shutdown(wait: bool = True) -> None:
     """Shutdown the background thread executor."""
-    _EXECUTOR.shutdown(wait=wait)
+    global _EXECUTOR
+    with _LOCK:
+        executor, _EXECUTOR = _EXECUTOR, None
+    if executor is not None:
+        executor.shutdown(wait=wait)

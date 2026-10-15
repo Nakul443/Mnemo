@@ -7,11 +7,16 @@ import pytest
 from falkordb.graph import Graph
 from fastapi.testclient import TestClient
 
+import mnemo.agent.nodes as nodes_module
+import mnemo.memory.pipeline as pipeline_module
 from mnemo.api.main import app
-from mnemo.llm import client as llm_client
-from mnemo.memory import extract as extract_module
 from mnemo.memory import read, worker, write
-from mnemo.models import ExtractedEntity, ExtractedFact, ExtractionResult
+from mnemo.models import (
+    ConflictDecision,
+    ExtractedEntity,
+    ExtractedFact,
+    ExtractionResult,
+)
 
 
 @pytest.fixture
@@ -68,7 +73,7 @@ def test_chat_validation_and_errors(client: TestClient) -> None:
         raise RuntimeError("Gemini API error")
 
     with pytest.MonkeyPatch.context() as mp:
-        mp.setattr(llm_client, "generate_text", mock_fail)
+        mp.setattr(nodes_module, "generate_text", mock_fail)
         res_502 = client.post("/chat", json={"session_id": s_id, "message": "hello"})
         assert res_502.status_code == 502
         assert res_502.json()["detail"] == "language model unavailable"
@@ -88,7 +93,20 @@ def test_cross_session_persistence_and_graph_snapshot(
         system_prompts_seen.append(system_prompt)
         return f"Response to: {messages[-1]['content']}"
 
-    monkeypatch.setattr(llm_client, "generate_text", mock_generate_text)
+    monkeypatch.setattr(nodes_module, "generate_text", mock_generate_text)
+
+    def mock_check_conflict(
+        new_fact_text: str,
+        existing_facts: Any,
+    ) -> ConflictDecision:
+        existing_ids = [
+            str(f["id"]) for f in existing_facts if isinstance(f, dict) and f.get("id") is not None
+        ]
+        if existing_ids:
+            return ConflictDecision(action="replace", replaces=existing_ids)
+        return ConflictDecision(action="add", replaces=[])
+
+    monkeypatch.setattr(pipeline_module, "check_conflict", mock_check_conflict)
 
     # Session 1: User says building Project X in Python
     def mock_extract_s1(message: str, recent: Any) -> ExtractionResult:
@@ -104,7 +122,7 @@ def test_cross_session_persistence_and_graph_snapshot(
             ],
         )
 
-    monkeypatch.setattr(extract_module, "extract", mock_extract_s1)
+    monkeypatch.setattr(pipeline_module, "extract", mock_extract_s1)
 
     s1_id = client.post("/sessions").json()["session_id"]
     res1 = client.post(
@@ -118,12 +136,18 @@ def test_cross_session_persistence_and_graph_snapshot(
     assert worker.wait_for_idle(timeout=2.0) is True
 
     # Session 2: New session asks about Project X
+    def mock_extract_question(message: str, recent: Any) -> ExtractionResult:
+        return ExtractionResult(entities=[], facts=[])
+
+    monkeypatch.setattr(pipeline_module, "extract", mock_extract_question)
+
     s2_id = client.post("/sessions").json()["session_id"]
     res2 = client.post(
         "/chat",
         json={"session_id": s2_id, "message": "What do you know about Project X?"},
     )
     assert res2.status_code == 200
+    assert worker.wait_for_idle(timeout=2.0) is True
 
     # Cross-session assertion: Session 2 system prompt contained the fact from Session 1!
     last_system_prompt = system_prompts_seen[-1]
@@ -140,7 +164,7 @@ def test_cross_session_persistence_and_graph_snapshot(
             facts=[ExtractedFact(text="Project X uses Go", about=["Project X", "Go"])],
         )
 
-    monkeypatch.setattr(extract_module, "extract", mock_extract_s2)
+    monkeypatch.setattr(pipeline_module, "extract", mock_extract_s2)
 
     res3 = client.post(
         "/chat",

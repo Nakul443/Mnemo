@@ -3,8 +3,8 @@
 import pytest
 from falkordb.graph import Graph
 
+from mnemo.agent import nodes as nodes_module
 from mnemo.agent import service
-from mnemo.llm import client as llm_client
 from mnemo.memory import read, worker, write
 
 
@@ -29,7 +29,7 @@ def test_run_turn_orchestration(
         assert messages[-1]["content"] == "Hello agent"
         return "Hello user, I remember you!"
 
-    monkeypatch.setattr(llm_client, "generate_text", mock_generate_text)
+    monkeypatch.setattr(nodes_module, "generate_text", mock_generate_text)
 
     # Run turn
     res = service.run_turn(agent_id, session_id, "Hello agent")
