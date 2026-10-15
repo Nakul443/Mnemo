@@ -85,7 +85,8 @@ export const GraphPanel: React.FC<GraphPanelProps> = ({
 
     if (snapshotChanged(prevSnapshotRef.current, snapshot)) {
       const prevCount = nodes.length;
-      const updatedData = mergeSnapshot(nodes, snapshot, Date.now());
+      const currentNow = Date.now();
+      const updatedData = mergeSnapshot(nodes, snapshot, currentNow);
       setNodes(updatedData.nodes);
       setLinks(updatedData.links);
 

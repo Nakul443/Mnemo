@@ -83,9 +83,10 @@ export function useGraphPolling(): UseGraphPollingReturn {
       }
     }
 
-    timerRef.current = setTimeout(async () => {
-      await fetchGraph();
-      scheduleNext();
+    timerRef.current = setTimeout(() => {
+      fetchGraph().then(() => {
+        scheduleNext();
+      });
     }, interval);
   }, [connected, pendingCount, fetchGraph]);
 
