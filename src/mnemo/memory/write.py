@@ -5,6 +5,7 @@
 # ensuring that the graph structure is maintained and that relationships between nodes are correctly established.
 
 import logging
+import threading
 import time
 from uuid import uuid4
 
@@ -14,6 +15,10 @@ from mnemo.memory.client import get_graph
 from mnemo.memory.normalize import normalize_name
 
 logger = logging.getLogger(__name__)
+
+# Single-process threading lock to prevent event seq calculation race conditions.
+# Note: A multi-process deployment would require an atomic counter/sequence in FalkorDB.
+_ADD_EVENT_LOCK = threading.Lock()
 
 
 def _now_ms() -> int:
@@ -89,35 +94,45 @@ def add_event(
     role: str = "user",
 ) -> dict[str, object]:
     """Store an event at the next sequence position in its session."""
-    event_id = str(uuid4())
-    result = get_graph().query(
-        """
-        MATCH (s:Session {id: $session_id, agent_id: $agent_id})
-        OPTIONAL MATCH (s)-[:CONTAINS]->(previous:Event {agent_id: $agent_id})
-        WITH s, coalesce(max(previous.seq), 0) + 1 AS next_seq
-        CREATE (ev:Event {
-            id: $event_id,
-            agent_id: $agent_id,
-            session_id: $session_id,
-            seq: next_seq,
-            role: $role,
-            text: $text,
-            ts: $ts
-        })
-        CREATE (s)-[:CONTAINS {seq: next_seq}]->(ev)
-        RETURN ev.id AS id, ev.agent_id AS agent_id, ev.session_id AS session_id,
-               ev.seq AS seq, ev.role AS role, ev.text AS text, ev.ts AS ts
-        """,
-        {
-            "agent_id": agent_id,
-            "session_id": session_id,
-            "event_id": event_id,
-            "role": role,
-            "text": text,
-            "ts": _now_ms(),
-        },
-    )
-    row = _one_row(result, "adding event")
+    with _ADD_EVENT_LOCK:
+        event_id = str(uuid4())
+        result = get_graph().query(
+            """
+            MATCH (s:Session {id: $session_id, agent_id: $agent_id})
+            OPTIONAL MATCH (s)-[:CONTAINS]->(previous:Event {agent_id: $agent_id})
+            WITH s, coalesce(max(previous.seq), 0) + 1 AS next_seq
+            CREATE (ev:Event {
+                id: $event_id,
+                agent_id: $agent_id,
+                session_id: $session_id,
+                seq: next_seq,
+                role: $role,
+                text: $text,
+                ts: $ts
+            })
+            CREATE (s)-[:CONTAINS {seq: next_seq}]->(ev)
+            RETURN ev.id AS id, ev.agent_id AS agent_id, ev.session_id AS session_id,
+                   ev.seq AS seq, ev.role AS role, ev.text AS text, ev.ts AS ts
+            """,
+            {
+                "agent_id": agent_id,
+                "session_id": session_id,
+                "event_id": event_id,
+                "role": role,
+                "text": text,
+                "ts": _now_ms(),
+            },
+        )
+        row = _one_row(result, "adding event")
+        return {
+            "id": row[0],
+            "agent_id": row[1],
+            "session_id": row[2],
+            "seq": row[3],
+            "role": row[4],
+            "text": row[5],
+            "ts": row[6],
+        }
     return {
         "id": row[0],
         "agent_id": row[1],

@@ -17,16 +17,28 @@ from mnemo.models import ExtractionResult, FactDecision, ProcessResult
 
 logger = logging.getLogger(__name__)
 
-
+# function to process a single user message into event, entities, and facts
+# it takes the agent ID, session ID, message text, and an optional event dictionary
+# if the event is not provided, it creates a new event and retrieves recent events for context
 def process_message(
     agent_id: str,
     session_id: str,
     text: str,
+    event: dict[str, object] | None = None,
 ) -> ProcessResult:
     """Process a single user message into event, entities, and facts."""
-    recent = read.get_recent_events(agent_id, session_id, n=3)
-    event = write.add_event(agent_id, session_id, text)
-    event_id = str(event["id"])
+    if event is None:
+        recent = read.get_recent_events(agent_id, session_id, n=3)
+        ev = write.add_event(agent_id, session_id, text)
+    else:
+        ev = event
+        seq_val = ev.get("seq")
+        before_seq = int(seq_val) if isinstance(seq_val, (int, str)) else None
+        recent = read.get_recent_events(
+            agent_id, session_id, n=3, before_seq=before_seq
+        )
+
+    event_id = str(ev["id"])
 
     try:
         extraction = extract(text, recent)
@@ -87,7 +99,7 @@ def process_message(
                 FactDecision(text=fact.text, action="add", replaces=[])
             )
 
-    seq_val = event["seq"]
+    seq_val = ev["seq"]
     seq_num = int(seq_val) if isinstance(seq_val, (int, str)) else 0
 
     return ProcessResult(
