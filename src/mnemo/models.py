@@ -40,3 +40,16 @@ class ProcessResult(BaseModel):
     text: str
     entities: list[ExtractedEntity] = Field(default_factory=list)
     fact_decisions: list[FactDecision] = Field(default_factory=list)
+
+
+class RecalledFact(BaseModel):
+    id: str
+    text: str
+    created_at: int
+    source: str  # "preference" | "direct" | "related" | "recent"
+
+
+class RecallResult(BaseModel):
+    facts: list[RecalledFact] = Field(default_factory=list)
+    matched_entity_ids: list[str] = Field(default_factory=list)
+    context_block: str
