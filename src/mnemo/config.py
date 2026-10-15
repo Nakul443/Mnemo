@@ -11,11 +11,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+# this class represents the configuration settings for the Mnemo application
+# it is frozen to prevent modification after creation,
+# ensuring that the settings remain consistent throughout the application's lifecycle
 @dataclass(frozen=True)
 class Settings:
     gemini_api_key: str | None
     extraction_model: str
     conflict_model: str
+    chat_model: str
+    cors_origins: list[str]
     falkordb_host: str
     falkordb_port: int
     falkordb_password: str | None
@@ -25,15 +30,22 @@ class Settings:
     log_level: str
 
 
+# function to parse a comma-separated string of CORS origins into a list of strings
+def _parse_cors_origins(raw: str) -> list[str]:
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
+# function to read current configuration from environment variables and return a Settings object
 def get_settings() -> Settings:
     """Read current configuration from environment variables."""
     password = os.getenv("FALKORDB_PASSWORD", "").strip() or None
+    raw_cors = os.getenv("CORS_ORIGINS", "http://localhost:5173")
     return Settings(
         gemini_api_key=os.getenv("GEMINI_API_KEY"),
-        extraction_model=os.getenv(
-            "EXTRACTION_MODEL", "gemini-2.5-flash-lite"
-        ),
+        extraction_model=os.getenv("EXTRACTION_MODEL", "gemini-2.5-flash-lite"),
         conflict_model=os.getenv("CONFLICT_MODEL", "gemini-2.5-flash-lite"),
+        chat_model=os.getenv("CHAT_MODEL", "gemini-2.5-flash"),
+        cors_origins=_parse_cors_origins(raw_cors),
         falkordb_host=os.getenv("FALKORDB_HOST", "localhost"),
         falkordb_port=int(os.getenv("FALKORDB_PORT", "6380")),
         falkordb_password=password,

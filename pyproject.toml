@@ -10,13 +10,19 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "falkordb",
+    "fastapi",
     "google-genai",
+    "langgraph",
     "pydantic>=2",
     "python-dotenv",
+    "uvicorn[standard]",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["httpx", "pytest"]
+
+[project.scripts]
+mnemo-chat = "mnemo.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
