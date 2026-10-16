@@ -5,7 +5,7 @@
     // allows users to interact with the graph by clicking on nodes or links,
     // and provides controls to fit the graph to view, toggle history visibility, and view node details.
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import ForceGraph2D, { type ForceGraphMethods } from "react-force-graph-2d";
 import type { GraphSnapshot } from "../api/types";
 import { COLORS } from "../lib/colors";
@@ -25,6 +25,8 @@ export interface GraphPanelProps {
   recalledFactIds?: string[];
   matchedEntityIds?: string[];
   highlightedFactId?: string | null;
+  selectedNodeId?: string | null;
+  onSelectNode?: (nodeId: string | null) => void;
   onFactSelect?: (factId: string) => void;
 }
 
@@ -33,6 +35,8 @@ export const GraphPanel: React.FC<GraphPanelProps> = ({
   recalledFactIds = [],
   matchedEntityIds = [],
   highlightedFactId = null,
+  selectedNodeId: controlledSelectedNodeId = null,
+  onSelectNode,
   onFactSelect,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -40,26 +44,40 @@ export const GraphPanel: React.FC<GraphPanelProps> = ({
 
   const [dimensions, setDimensions] = useState({ width: 600, height: 600 });
   const [showHistory, setShowHistory] = useState<boolean>(true);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [internalSelectedNodeId, setInternalSelectedNodeId] = useState<string | null>(null);
   const [nodes, setNodes] = useState<ExtendedNode[]>([]);
   const [links, setLinks] = useState<ExtendedLink[]>([]);
-  const [now, setNow] = useState<number>(Date.now());
+  const [isAnimating, setIsAnimating] = useState<boolean>(false);
+
+  const selectedNodeId = controlledSelectedNodeId ?? internalSelectedNodeId;
+
+  const setSelectedNode = (nodeId: string | null) => {
+    setInternalSelectedNodeId(nodeId);
+    onSelectNode?.(nodeId);
+  };
 
   const prevSnapshotRef = useRef<GraphSnapshot | null>(null);
   const recalledSet = useRef<Set<string>>(new Set());
+  const animTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Update recalled set & trigger gold pulse
+  const triggerAnimationWindow = (durationMs: number = 4000) => {
+    setIsAnimating(true);
+    if (animTimerRef.current) {
+      clearTimeout(animTimerRef.current);
+    }
+    animTimerRef.current = setTimeout(() => {
+      setIsAnimating(false);
+    }, durationMs);
+  };
+
+  // Update recalled set & trigger animation window
   useEffect(() => {
-    recalledSet.current = new Set([...recalledFactIds, ...matchedEntityIds]);
+    const combined = [...recalledFactIds, ...matchedEntityIds];
+    recalledSet.current = new Set(combined);
+    if (combined.length > 0) {
+      triggerAnimationWindow(4000);
+    }
   }, [recalledFactIds, matchedEntityIds]);
-
-  // Animation frame ticker for pulse/entrance/fade
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setNow(Date.now());
-    }, 50);
-    return () => clearInterval(interval);
-  }, []);
 
   // Handle ResizeObserver for canvas dimensions
   useEffect(() => {
@@ -90,6 +108,8 @@ export const GraphPanel: React.FC<GraphPanelProps> = ({
       setNodes(updatedData.nodes);
       setLinks(updatedData.links);
 
+      triggerAnimationWindow(1500);
+
       // Reheat simulation if new nodes arrived
       if (updatedData.nodes.length > prevCount && fgRef.current) {
         fgRef.current.d3ReheatSimulation();
@@ -102,21 +122,23 @@ export const GraphPanel: React.FC<GraphPanelProps> = ({
     }
   }, [snapshot, nodes]);
 
-  // Configure D3 Force Parameters
+  const hasNodes = nodes.length > 0;
+
+  // Configure D3 Force Parameters once graph component is mounted
   useEffect(() => {
-    if (fgRef.current) {
+    if (fgRef.current && hasNodes) {
       fgRef.current.d3Force("charge")?.strength(-140);
       fgRef.current.d3Force("link")?.distance((link: any) => {
         return link.type === "REPLACES" ? 40 : 55;
       });
     }
-  }, []);
+  }, [hasNodes]);
 
   // Keyboard shortcut Esc to close drawer
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        setSelectedNodeId(null);
+        setSelectedNode(null);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -130,26 +152,29 @@ export const GraphPanel: React.FC<GraphPanelProps> = ({
   };
 
   const handleNodeClick = (node: any) => {
-    setSelectedNodeId(node.id);
+    setSelectedNode(node.id);
     if (onFactSelect && node.kind === "fact") {
       onFactSelect(node.id);
     }
   };
 
   const handleBackgroundClick = () => {
-    setSelectedNodeId(null);
+    setSelectedNode(null);
   };
 
   const handleSelectNodeById = (nodeId: string) => {
-    setSelectedNodeId(nodeId);
+    setSelectedNode(nodeId);
     const targetNode = nodes.find((n) => n.id === nodeId);
     if (targetNode && fgRef.current && targetNode.x !== undefined && targetNode.y !== undefined) {
       fgRef.current.centerAt(targetNode.x, targetNode.y, 500);
     }
   };
 
-  // Filter history
-  const filteredData = filterHistory({ nodes, links }, showHistory);
+  // Memoize graphData so reference remains stable and doesn't trigger layout reheat on every render
+  const graphData = useMemo(() => {
+    const filtered = filterHistory({ nodes, links }, showHistory);
+    return { nodes: filtered.nodes, links: filtered.links };
+  }, [nodes, links, showHistory]);
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) || null;
 
@@ -164,10 +189,7 @@ export const GraphPanel: React.FC<GraphPanelProps> = ({
           ref={fgRef as any}
           width={dimensions.width}
           height={dimensions.height}
-          graphData={{
-            nodes: filteredData.nodes as any,
-            links: filteredData.links as any,
-          }}
+          graphData={graphData as any}
           backgroundColor={COLORS.bg}
           cooldownTicks={120}
           d3AlphaDecay={0.03}
@@ -177,7 +199,7 @@ export const GraphPanel: React.FC<GraphPanelProps> = ({
               node as ExtendedNode,
               ctx,
               globalScale,
-              now,
+              Date.now(),
               selectedNodeId,
               highlightedFactId,
               recalledSet.current
@@ -193,7 +215,7 @@ export const GraphPanel: React.FC<GraphPanelProps> = ({
           linkCurvature={(link: any) => (link.type === "REPLACES" ? 0.2 : 0)}
           onNodeClick={handleNodeClick}
           onBackgroundClick={handleBackgroundClick}
-          autoPauseRedraw={false}
+          autoPauseRedraw={!isAnimating}
         />
       )}
 
@@ -234,8 +256,8 @@ export const GraphPanel: React.FC<GraphPanelProps> = ({
       <NodeDetail
         node={selectedNode}
         snapshot={snapshot}
-        now={now}
-        onClose={() => setSelectedNodeId(null)}
+        now={Date.now()}
+        onClose={() => setSelectedNode(null)}
         onSelectNodeById={handleSelectNodeById}
       />
     </div>

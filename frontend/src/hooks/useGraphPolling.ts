@@ -28,8 +28,15 @@ export function useGraphPolling(): UseGraphPollingReturn {
 
   const fastUntilRef = useRef<number>(0);
   const consecutiveZeroPendingRef = useRef<number>(0);
+  const connectedRef = useRef<boolean>(true);
+  const pendingCountRef = useRef<number>(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    connectedRef.current = connected;
+    pendingCountRef.current = pendingCount;
+  }, [connected, pendingCount]);
 
   const enterFastMode = useCallback(() => {
     fastUntilRef.current = Date.now() + FAST_MODE_DURATION_MS;
@@ -49,7 +56,7 @@ export function useGraphPolling(): UseGraphPollingReturn {
     abortControllerRef.current = controller;
 
     try {
-      const snapshot = await api.getGraph();
+      const snapshot = await api.getGraph(controller.signal);
       setGraph(snapshot);
       setConnected(true);
       setPendingCount(snapshot.extraction_pending);
@@ -59,7 +66,10 @@ export function useGraphPolling(): UseGraphPollingReturn {
       } else {
         consecutiveZeroPendingRef.current = 0;
       }
-    } catch {
+    } catch (err: any) {
+      if (err?.name === "AbortError") {
+        return;
+      }
       setConnected(false);
     }
   }, []);
@@ -71,11 +81,11 @@ export function useGraphPolling(): UseGraphPollingReturn {
 
     let interval = NORMAL_INTERVAL_MS;
 
-    if (!connected) {
+    if (!connectedRef.current) {
       interval = ERROR_BACKOFF_MS;
     } else {
       const isFastTime = Date.now() < fastUntilRef.current;
-      const isPending = pendingCount > 0;
+      const isPending = pendingCountRef.current > 0;
       const isDraining = consecutiveZeroPendingRef.current < 2;
 
       if (isPending || (isFastTime && isDraining)) {
@@ -88,7 +98,7 @@ export function useGraphPolling(): UseGraphPollingReturn {
         scheduleNext();
       });
     }, interval);
-  }, [connected, pendingCount, fetchGraph]);
+  }, [fetchGraph]);
 
   const refreshNow = useCallback(() => {
     fetchGraph().then(() => {

@@ -6,7 +6,7 @@
     // and coordinates interactions between the chat panel and graph panel.
 
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { ChatPanel } from "./components/ChatPanel";
 import { GraphPanel } from "./components/GraphPanel";
 import { Header } from "./components/Header";
@@ -21,12 +21,23 @@ export const App: React.FC = () => {
   const [highlightedFactId, setHighlightedFactId] = useState<string | null>(
     null
   );
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [recalledFactIds, setRecalledFactIds] = useState<string[]>([]);
   const [matchedEntityIds, setMatchedEntityIds] = useState<string[]>([]);
+
+  const recallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleRecalled = (factIds: string[], entityIds: string[]) => {
     setRecalledFactIds(factIds);
     setMatchedEntityIds(entityIds);
+
+    if (recallTimerRef.current) {
+      clearTimeout(recallTimerRef.current);
+    }
+    recallTimerRef.current = setTimeout(() => {
+      setRecalledFactIds([]);
+      setMatchedEntityIds([]);
+    }, 4000);
   };
 
   const { graph, pendingCount, connected, refreshNow, enterFastMode } =
@@ -48,6 +59,7 @@ export const App: React.FC = () => {
       clearMessages();
       setRecalledFactIds([]);
       setMatchedEntityIds([]);
+      setSelectedNodeId(null);
       refreshNow();
     }
   };
@@ -70,7 +82,7 @@ export const App: React.FC = () => {
           onSend={sendMessage}
           onRetry={retryMessage}
           onFactHover={setHighlightedFactId}
-          onFactClick={setHighlightedFactId}
+          onFactClick={setSelectedNodeId}
         />
 
         <GraphPanel
@@ -78,6 +90,8 @@ export const App: React.FC = () => {
           recalledFactIds={recalledFactIds}
           matchedEntityIds={matchedEntityIds}
           highlightedFactId={highlightedFactId}
+          selectedNodeId={selectedNodeId}
+          onSelectNode={setSelectedNodeId}
         />
       </main>
     </div>

@@ -82,7 +82,7 @@ export const api = {
     });
   },
 
-  getGraph(): Promise<GraphSnapshot> {
-    return request<GraphSnapshot>("/graph");
+  getGraph(signal?: AbortSignal): Promise<GraphSnapshot> {
+    return request<GraphSnapshot>("/graph", { signal });
   },
 };
