@@ -1,41 +1,36 @@
-# Mnemo Graph Schema
+# Mnemo Graph Schema Reference
 
-FalkorDB is schemaless. The labels, properties, and relationships below are
-conventions enforced by application code.
+FalkorDB is a high-performance graph database. The labels, properties, and relationships below represent the schema conventions enforced by Mnemo application code.
 
 ## Nodes
 
-| Label | Properties |
-|---|---|
-| `Agent` | `id` (string), `agent_id` (string), `name` (string), `created_at` (epoch milliseconds) |
-| `Session` | `id` (UUID string), `agent_id`, `started_at` (epoch milliseconds), `goal` (string, optional; empty for now) |
-| `Event` | `id` (UUID string), `agent_id`, `session_id`, `seq` (integer, order within session), `role` (currently `"user"`), `text` (string), `ts` (epoch milliseconds) |
-| `Entity` | `id` (UUID string), `agent_id`, `name` (display name), `name_key` (normalized name), `type` (`Project`, `Tool`, `Person`, `Decision`, or `Preference`), `created_at` (epoch milliseconds) |
-| `Fact` | `id` (UUID string), `agent_id`, `text`, `still_true` (boolean), `created_at` (epoch milliseconds), `replaced_at` (epoch milliseconds, set when replaced) |
+| Label | Properties | Description |
+|---|---|---|
+| `Agent` | `id` (string), `agent_id` (string), `name` (string), `created_at` (epoch ms) | Represents the AI agent instance owning sessions and facts. |
+| `Session` | `id` (UUID string), `agent_id` (string), `started_at` (epoch ms), `goal` (string) | Represents a conversation thread between user and agent. |
+| `Event` | `id` (UUID string), `agent_id` (string), `session_id` (string), `seq` (integer), `role` (`"user"` or `"assistant"`), `text` (string), `ts` (epoch ms) | Individual conversation turn/message. |
+| `Entity` | `id` (UUID string), `agent_id` (string), `name` (string), `name_key` (normalized string), `type` (`Project`, `Tool`, `Person`, `Decision`, `Preference`), `created_at` (epoch ms) | Durable entity mentioned in conversation. |
+| `Fact` | `id` (UUID string), `agent_id` (string), `text` (string), `still_true` (boolean), `created_at` (epoch ms), `replaced_at` (epoch ms, optional) | Standalone third-person statement about entities. |
 
-All timestamps are epoch milliseconds. Every node carries `agent_id` so graph
-queries can be scoped to an agent. The `Agent` node uses the same value for
-`id` and `agent_id`.
+All timestamps are stored as epoch milliseconds (integer). Every node carries `agent_id` so graph queries can be scoped per agent.
 
 ## Relationships
 
-| Relationship | Direction | Properties | Meaning |
+| Relationship | Direction | Properties | Description |
 |---|---|---|---|
-| `OWNS` | `Agent` → `Session` | — | Agent owns the session |
-| `OWNS` | `Agent` → `Fact` | — | Agent owns the fact |
-| `CONTAINS` | `Session` → `Event` | `seq` | Session contains a message |
-| `MENTIONS` | `Event` → `Entity` | — | Message mentions an entity |
-| `ABOUT` | `Fact` → `Entity` | — | Fact concerns an entity |
-| `CAME_FROM` | `Fact` → `Event` | — | Provenance: source message for a fact |
-| `REPLACES` | new `Fact` → old `Fact` | — | New fact supersedes old fact |
+| `OWNS` | `Agent` $\rightarrow$ `Session` | — | Agent owns the session |
+| `OWNS` | `Agent` $\rightarrow$ `Fact` | — | Agent owns the fact |
+| `CONTAINS` | `Session` $\rightarrow$ `Event` | `seq` (integer) | Session contains an event message |
+| `MENTIONS` | `Event` $\rightarrow$ `Entity` | — | Event mentions an entity |
+| `ABOUT` | `Fact` $\rightarrow$ `Entity` | — | Fact relates to an entity |
+| `CAME_FROM` | `Fact` $\rightarrow$ `Event` | — | Provenance link connecting a fact to its source message |
+| `REPLACES` | new `Fact` $\rightarrow$ old `Fact` | — | Directed edge from active fact to superseded fact |
 
-Replaced facts remain in the graph with `still_true=false` and a
-`replaced_at` timestamp. They must not be deleted.
+Replaced facts remain in the graph with `still_true = false` and `replaced_at` set. They are preserved for audit trail and history visualization.
 
-## Indexes
+## Graph Indexes
 
-`memory/schema.py` creates these indexes. Initialization is safe to rerun and
-only suppresses errors indicating that an index already exists.
+Created idempotently during application startup in `backend/src/mnemo/memory/schema.py`:
 
 ```cypher
 CREATE INDEX FOR (e:Entity) ON (e.name_key)
@@ -45,20 +40,19 @@ CREATE INDEX FOR (f:Fact) ON (f.still_true)
 CREATE INDEX FOR (ev:Event) ON (ev.session_id)
 ```
 
-## Multi-agent readiness
+## Subgraph Example (Fact Supersession)
 
-Mnemo currently has one agent, `agent_main`. Queries must scope memory data by
-`agent_id`. A future agent can be represented by another `Agent` node; shared
-facts and their sharing relationships are not part of the current schema
-implementation.
+When a user states *"I am building Project X in Python"* and later *"Actually I switched Project X to Go"*:
 
-## Example
+```
+(Agent: agent_main)-[:OWNS]->(Fact: "Project X uses Go", still_true: true)
+(Fact: "Project X uses Go")-[:ABOUT]->(Entity: "Project X")
+(Fact: "Project X uses Go")-[:ABOUT]->(Entity: "Go")
+(Fact: "Project X uses Go")-[:CAME_FROM]->(Event: "Actually I switched...")
 
-For “I'm building Project X in Python,” the graph links the message event to
-the `Project X` and `Python` entities. A fact such as “Project X uses Python”
-is owned by the agent, connected to both entities with `ABOUT`, and connected
-to its source event with `CAME_FROM`.
+(Fact: "Project X uses Go")-[:REPLACES]->(Fact: "Project X uses Python", still_true: false)
 
-If the user later switches to Go, the new “Project X uses Go” fact is current
-and has a `REPLACES` edge to the Python fact. The Python fact stays in the graph
-as historical memory.
+(Fact: "Project X uses Python")-[:ABOUT]->(Entity: "Project X")
+(Fact: "Project X uses Python")-[:ABOUT]->(Entity: "Python")
+(Fact: "Project X uses Python")-[:CAME_FROM]->(Event: "I am building Project X...")
+```
