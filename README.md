@@ -1,9 +1,20 @@
 # Mnemo
 
+# Live Link
+https://mnemo-chi-one.vercel.app/
+
 > **Graph memory for AI agents, powered by FalkorDB.**
 > Built for **Graph Hacks** (WeMakeDevs x FalkorDB) · Track 2: **Agent Memory and Coordination**
 
 Mnemo is a project assistant with persistent, structured graph memory. When users talk about their projects, tools, decisions, people, and preferences, Mnemo extracts durable facts into **FalkorDB** in the background. Before each response, Mnemo traverses the memory graph to recall relevant facts—including 1-hop related entities and user preferences. When users change their mind (e.g., *"Switched Project X from Python to Go"*), old facts are preserved as historical memory with a directed `REPLACES` edge pointing from the new fact to the old one.
+
+---
+
+## Demo
+
+
+
+Live demo uses limited free-tier AI quota; if replies fail, watch the video.
 
 ---
 
@@ -139,6 +150,7 @@ cp .env.example .env
 
 python -m venv ../.venv
 source ../.venv/bin/activate
+# or on Windows: ..\.venv\Scripts\activate
 pip install -r requirements.txt
 
 # Run FastAPI server
@@ -157,7 +169,7 @@ Open `http://localhost:5173` in your browser.
 
 ### 4. Running Tests
 ```bash
-# Backend unit tests (32 tests)
+# Backend unit tests (33 tests)
 cd backend && ../.venv/bin/pytest
 
 # Frontend unit tests (10 tests)
@@ -167,8 +179,25 @@ cd frontend && npm test
 ### 5. Reset Memory Graph
 To wipe graph data and start fresh:
 ```bash
-docker exec mnemo-falkor-hackathon-falkordb-1 redis-cli -p 6379 GRAPH.DELETE mnemo
+cd backend && docker compose exec falkordb redis-cli GRAPH.DELETE mnemo
 ```
+
+---
+
+## Deploying
+
+### Frontend (Vercel)
+- Set `VITE_API_BASE_URL` to your backend's public URL.
+- Note: Environment variables are baked in at build time, so redeploy after changes.
+
+### Backend (Render)
+- **Start Command**: `uvicorn mnemo.api.main:app --host 0.0.0.0 --port $PORT`
+- **Health Check Path**: `/health`
+- **CORS_ORIGINS**: Set to the exact frontend URL without trailing slash (e.g. `https://your-app.vercel.app`).
+- **Single Instance Only**: Run as a single instance because memory extraction relies on an in-memory single-worker FIFO queue.
+
+### Database (FalkorDB Cloud)
+- FalkorDB Cloud Free has no TLS and no persistence; use `FALKORDB_SSL=false` with the provided host, port, username, and password.
 
 ---
 
@@ -184,9 +213,16 @@ docker exec mnemo-falkor-hackathon-falkordb-1 redis-cli -p 6379 GRAPH.DELETE mne
 | `CHAT_MODEL` | `gemini-2.5-flash` | Model for chat responses |
 | `FALKORDB_HOST` | `localhost` | FalkorDB database host |
 | `FALKORDB_PORT` | `6380` | FalkorDB database port |
+| `FALKORDB_USERNAME` | `""` | FalkorDB database username |
+| `FALKORDB_PASSWORD` | `""` | FalkorDB database password |
+| `FALKORDB_SSL` | `false` | Enable SSL/TLS (`false` for FalkorDB Cloud Free) |
+| `FALKORDB_URL` | *(Optional)* | Full connection URI (e.g. `redis://...`) |
 | `FALKORDB_GRAPH` | `mnemo` | FalkorDB graph name |
 | `CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Allowed CORS origins |
 | `AGENT_ID` | `agent_main` | Default agent identifier |
+| `AGENT_NAME` | `Mnemo` | Agent display name |
+| `LOG_LEVEL` | `INFO` | Application log level |
+| `PORT` | `8000` | FastAPI server port |
 
 ### Frontend (`frontend/.env`)
 
@@ -231,7 +267,7 @@ mnemo/
 ## Design Decisions & Trade-offs
 
 - **Append-Only Knowledge History**: Replaced facts are marked `still_true=false` and linked via `REPLACES` edges rather than deleted, maintaining complete auditability.
-- **Single-Worker FIFO Extraction Queue**: Extraction and conflict checks run asynchronously on a single-worker `ThreadPoolExecutor` to eliminate race conditions while keeping chat response latency under 1 second.
+- **Single-Worker FIFO Extraction Queue**: Extraction and conflict checks run asynchronously on a single-worker `ThreadPoolExecutor` to eliminate race conditions while the reply never waits for memory extraction.
 - **Deterministic Non-LLM Memory Recall**: Whole-phrase entity detection and 1-hop graph traversals execute in milliseconds without extra LLM latency or cost.
 - **FalkorDB as Single Source of Truth**: FalkorDB stores both conversation history (`Event` nodes) and semantic facts (`Fact` nodes), avoiding separate checkpointer stores.
 - **Conservative Conflict Default**: Conflict classification defaults to `"add"` when uncertain, ensuring information is never mistakenly destroyed.
@@ -240,6 +276,12 @@ mnemo/
 
 ## Limitations & Future Roadmap
 
+- **Asynchronous Extraction**: Memory appears seconds after the reply because extraction and conflict checks run in the background.
+- **Model Decisions**: Model add/replace decisions can be wrong depending on LLM output and reasoning.
+- **Free-Tier Quota & Data-Use**: Subject to Gemini free-tier rate limits and provider data-use caveats.
+- **Single Process**: Designed for a single process with an in-memory queue; multi-worker scaling requires an external job queue.
+- **Command Syntax**: Explicit "replace X with Y" commands are not supported; memory updates must be expressed naturally.
+- **Entity Sharing for Replacement**: Facts only replace each other if they share an entity.
 - **Single-Agent Instance**: Currently deployed for one agent (`agent_main`). The schema is multi-agent ready via `agent_id` property scoping on every node.
 - **Regex Entity Detection**: Uses phrase matching with short-name case-sensitivity rules. Semantic entity linking via embeddings is planned for future releases.
 - **Future Enhancements**: Multi-agent shared facts (`SHARED_WITH` edges), procedural memory nodes (`Skill`), and multi-hop graph path queries.
