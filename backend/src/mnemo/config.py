@@ -24,6 +24,9 @@ class Settings:
     falkordb_host: str
     falkordb_port: int
     falkordb_password: str | None
+    falkordb_username: str | None
+    falkordb_ssl: bool
+    falkordb_url: str | None
     falkordb_graph: str
     agent_id: str
     agent_name: str
@@ -40,6 +43,10 @@ def _parse_cors_origins(raw: str) -> list[str]:
 def get_settings() -> Settings:
     """Read current configuration from environment variables."""
     password = os.getenv("FALKORDB_PASSWORD", "").strip() or None
+    username = os.getenv("FALKORDB_USERNAME", "").strip() or None
+    url = os.getenv("FALKORDB_URL", "").strip() or None
+    ssl_env = os.getenv("FALKORDB_SSL", "").strip().lower()
+    is_ssl = ssl_env in ("1", "true", "yes")
     raw_cors = os.getenv("CORS_ORIGINS", "http://localhost:5173")
     return Settings(
         gemini_api_key=os.getenv("GEMINI_API_KEY"),
@@ -50,6 +57,9 @@ def get_settings() -> Settings:
         falkordb_host=os.getenv("FALKORDB_HOST", "localhost"),
         falkordb_port=int(os.getenv("FALKORDB_PORT", "6380")),
         falkordb_password=password,
+        falkordb_username=username,
+        falkordb_ssl=is_ssl,
+        falkordb_url=url,
         falkordb_graph=os.getenv("FALKORDB_GRAPH", "mnemo"),
         agent_id=os.getenv("AGENT_ID", "agent_main"),
         agent_name=os.getenv("AGENT_NAME", "Mnemo"),

@@ -13,10 +13,29 @@ from mnemo.config import get_settings
 
 
 @lru_cache(maxsize=1)
-def _get_db(host: str, port: int, password: str | None) -> FalkorDB:
-    if password is None:
-        return FalkorDB(host=host, port=port)
-    return FalkorDB(host=host, port=port, password=password)
+def _get_db(
+    host: str,
+    port: int,
+    password: str | None,
+    username: str | None = None,
+    ssl: bool = False,
+    url: str | None = None,
+) -> FalkorDB:
+    if url:
+        return FalkorDB.from_url(
+            url,
+            socket_timeout=10.0,
+            socket_connect_timeout=10.0,
+        )
+    return FalkorDB(
+        host=host,
+        port=port,
+        password=password,
+        username=username,
+        ssl=ssl,
+        socket_timeout=10.0,
+        socket_connect_timeout=10.0,
+    )
 
 
 def get_graph() -> Graph:
@@ -26,5 +45,8 @@ def get_graph() -> Graph:
         settings.falkordb_host,
         settings.falkordb_port,
         settings.falkordb_password,
+        settings.falkordb_username,
+        settings.falkordb_ssl,
+        settings.falkordb_url,
     )
     return db.select_graph(settings.falkordb_graph)
