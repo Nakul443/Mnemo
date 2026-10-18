@@ -36,7 +36,12 @@ class Settings:
 
 # function to parse a comma-separated string of CORS origins into a list of strings
 def _parse_cors_origins(raw: str) -> list[str]:
-    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+    origins: list[str] = []
+    for origin in raw.split(","):
+        cleaned = origin.strip().strip("'\"").rstrip("/")
+        if cleaned:
+            origins.append(cleaned)
+    return origins
 
 
 # function to read current configuration from environment variables and return a Settings object
