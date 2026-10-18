@@ -1,8 +1,7 @@
+## Live Link: https://mnemo-chi-one.vercel.app/
+
+
 # Mnemo
-
-# Live Link
-https://mnemo-chi-one.vercel.app/
-
 > **Graph memory for AI agents, powered by FalkorDB.**
 > Built for **Graph Hacks** (WeMakeDevs x FalkorDB) · Track 2: **Agent Memory and Coordination**
 
