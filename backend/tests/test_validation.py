@@ -48,10 +48,9 @@ def test_extract_cleans_invalid_entities_and_unknown_fact_references(
         ("Project X", "Project"),
         ("Go", "Tool"),
     ]
-    assert [
-        (fact.text, fact.about)
-        for fact in result.facts
-    ] == [("Project X uses Go", ["Project X", "Go"])]
+    assert [(fact.text, fact.about) for fact in result.facts] == [
+        ("Project X uses Go", ["Project X", "Go"])
+    ]
     assert calls[0][0] == extract_module.get_settings().extraction_model
     assert "RECENT:\n- We started Project X.\nMESSAGE: We use Go." == calls[0][2]
     assert calls[0][1] == extract_module.load_prompt("extract")
@@ -115,7 +114,11 @@ def test_conflict_prefilters_empty_and_normalized_duplicates(
 @pytest.mark.parametrize(
     ("response", "expected_action", "expected_ids"),
     [
-        ('{"action":"replace","replaces":["known","unknown","known"]}', "replace", ["known"]),
+        (
+            '{"action":"replace","replaces":["known","unknown","known"]}',
+            "replace",
+            ["known"],
+        ),
         ('{"action":"replace","replaces":["unknown"]}', "add", []),
         ('{"action":"skip","replaces":["known"]}', "skip", []),
         ('{"action":"surprise","replaces":["known"]}', "add", []),
@@ -217,3 +220,16 @@ def test_generate_json_propagates_non_rate_limit_errors(
     with pytest.raises(ClientError):
         llm_client.generate_json("test-model", "system", "input")
     assert sleeps == []
+
+
+def test_is_retryable_daily_quota_and_rate_limits() -> None:
+    per_day_error = ClientError(
+        429,
+        {"message": "quotaId: GenerateRequestsPerDayPerProjectPerModel-FreeTier"},
+    )
+    plain_429_error = ClientError(429, {"message": "rate limited"})
+    plain_503_error = ClientError(503, {"message": "service unavailable"})
+
+    assert llm_client._is_retryable(per_day_error) is False
+    assert llm_client._is_retryable(plain_429_error) is True
+    assert llm_client._is_retryable(plain_503_error) is True

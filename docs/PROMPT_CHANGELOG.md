@@ -2,6 +2,12 @@
 
 This document tracks revisions to system prompts in `src/mnemo/prompts/`.
 
+## [Day 4 - Assistant Confirmation Guard] - 2026-10-18
+
+### `system.md` (v1.1.0)
+- Failure: The assistant previously claimed "I've updated that" or confirmed memory modifications when memory extraction runs asynchronously after the reply and had not yet changed.
+- Change: Added rule instructing the assistant to never claim it saved, updated, replaced, or deleted anything in memory since updates occur automatically after the reply.
+
 ## [Day 2 - Prompt Refinements] - 2026-10-16
 
 ### `extract.md` (v1.1.0)

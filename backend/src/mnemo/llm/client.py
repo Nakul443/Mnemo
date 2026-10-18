@@ -29,7 +29,10 @@ def _get_client(api_key: str) -> genai.Client:
 # function to determine if an error is retryable based on its type and status code
 # retryable errors include rate-limiting (429) and server errors (503)
 # also checks for certain error messages that indicate the service is overloaded or unavailable
+# daily quota errors (containing "PerDay") are non-retryable
 def _is_retryable(error: Exception) -> bool:
+    if "PerDay" in str(error):
+        return False
     if isinstance(error, (ClientError, ServerError)):
         code = getattr(error, "code", None) or getattr(error, "status", None)
         if code in (429, 503):
