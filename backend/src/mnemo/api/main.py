@@ -213,3 +213,10 @@ def get_graph_snapshot() -> GraphSnapshotResponse:
         updated_at=updated_at,
         extraction_pending=pending,
     )
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    settings = get_settings()
+    uvicorn.run("mnemo.api.main:app", host="0.0.0.0", port=settings.port, reload=True)

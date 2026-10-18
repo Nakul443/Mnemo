@@ -28,6 +28,7 @@ class Settings:
     agent_id: str
     agent_name: str
     log_level: str
+    port: int
 
 
 # function to parse a comma-separated string of CORS origins into a list of strings
@@ -53,6 +54,7 @@ def get_settings() -> Settings:
         agent_id=os.getenv("AGENT_ID", "agent_main"),
         agent_name=os.getenv("AGENT_NAME", "Mnemo"),
         log_level=os.getenv("LOG_LEVEL", "INFO"),
+        port=int(os.getenv("PORT", "8000")),
     )
 
 
