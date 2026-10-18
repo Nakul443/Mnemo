@@ -35,7 +35,7 @@ logs/
 .DS_Store
 Thumbs.db
 
-docs/day1.md
-docs/day2.md
-docs/day3.md
-docs/day4.md
+day1.md
+day2.md
+day3.md
+day4.md
