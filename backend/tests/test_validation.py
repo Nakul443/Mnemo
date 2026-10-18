@@ -7,11 +7,10 @@ import json
 from dataclasses import replace
 from types import SimpleNamespace
 
-import pytest
-from google.genai.errors import ClientError
-
 import mnemo.llm.client as llm_client
 import mnemo.memory.extract as extract_module
+import pytest
+from google.genai.errors import ClientError
 from mnemo.memory import conflicts
 
 

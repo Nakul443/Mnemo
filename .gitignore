@@ -35,5 +35,7 @@ logs/
 .DS_Store
 Thumbs.db
 
-# Day 1 draft spec file
-README(DAY 1).md
+/backend/docs/day1.md
+/backend/docs/day2.md
+/backend/docs/day3.md
+/backend/docs/day4.md
